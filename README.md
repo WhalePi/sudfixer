@@ -43,8 +43,9 @@ mvn -Pinstaller-windows clean verify    # Windows -> target\installer\*.msi (nee
 ```
 
 The **Installers** GitHub workflow builds the Windows `.msi` and macOS `.dmg` (Apple silicon and
-Intel) whenever the version in `pom.xml` changes on `main`, and attaches them to a GitHub release
-when a version tag (`1.0.0` or `v1.0.0`) is pushed.
+Intel). To release, bump `<version>` in `pom.xml` and push to `main`: the workflow builds the
+installers and publishes them as GitHub release `v<version>`. Pushing a version tag, or running the
+workflow by hand on `main` (Actions → Installers → Run workflow), does the same.
 
 The icon is the WhalePi Host artwork with a cog/clock badge; regenerate it with
 `java build/icon/MakeIcon.java` (the `.icns` step needs macOS).
