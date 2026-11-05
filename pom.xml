@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.pamguard</groupId>
+  <artifactId>sudfixer</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <name>SUD Time Fixer</name>
+  <description>Shift the recorded time of SoundTrap .sud files by a fixed offset.</description>
+
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <javafx.version>21.0.5</javafx.version>
+    <junit.version>5.10.2</junit.version>
+
+    <main.class>sudfixer.Launcher</main.class>
+    <app.name>SUD Time Fixer</app.name>
+    <!-- Directory assembled by antrun and used as the jpackage input -->
+    <app.dir>${project.build.directory}/app</app.dir>
+    <installer.dir>${project.build.directory}/installer</installer.dir>
+    <app.vendor>PAMGuard-WhalePi</app.vendor>
+    <app.copyright>Copyright (c) WhalePi</app.copyright>
+    <mac.package.type>DMG</mac.package.type>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-graphics</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-base</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>sudfixer</finalName>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
+
+      <!-- mvn javafx:run for development -->
+      <plugin>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-maven-plugin</artifactId>
+        <version>0.0.8</version>
+        <configuration>
+          <mainClass>${main.class}</mainClass>
+        </configuration>
+      </plugin>
+
+      <!-- Collect every runtime jar (including the platform JavaFX jars) -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.7.1</version>
+        <executions>
+          <execution>
+            <id>collect-dependencies</id>
+            <phase>prepare-package</phase>
+            <goals><goal>copy-dependencies</goal></goals>
+            <configuration>
+              <outputDirectory>${app.dir}</outputDirectory>
+              <includeScope>runtime</includeScope>
+              <overWriteReleases>true</overWriteReleases>
+              <overWriteSnapshots>true</overWriteSnapshots>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Drop our own jar next to the dependencies so the input folder has everything -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>stage-app-jar</id>
+            <phase>package</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <target>
+                <copy file="${project.build.directory}/${project.build.finalName}.jar"
+                      todir="${app.dir}"/>
+                <mkdir dir="${installer.dir}"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!--
+      Installer profiles. jpackage can only build a native installer for the
+      platform it runs on, so each profile activates on its own OS:
+
+        macOS   :  mvn -Pinstaller-mac     clean verify   ->  target/installer/*.dmg
+        Windows :  mvn -Pinstaller-windows clean verify   ->  target\installer\*.msi
+    -->
+    <profile>
+      <id>installer-mac</id>
+      <activation>
+        <os><family>mac</family></os>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.panteleyev</groupId>
+            <artifactId>jpackage-maven-plugin</artifactId>
+            <version>1.6.5</version>
+            <executions>
+              <execution>
+                <id>package-dmg</id>
+                <phase>verify</phase>
+                <goals><goal>jpackage</goal></goals>
+              </execution>
+            </executions>
+            <configuration>
+              <name>${app.name}</name>
+              <appVersion>${project.version}</appVersion>
+              <vendor>${app.vendor}</vendor>
+              <copyright>${app.copyright}</copyright>
+              <description>${project.description}</description>
+              <type>${mac.package.type}</type>
+              <input>${app.dir}</input>
+              <destination>${installer.dir}</destination>
+              <mainJar>${project.build.finalName}.jar</mainJar>
+              <mainClass>${main.class}</mainClass>
+              <icon>${project.basedir}/src/main/deploy/sudfixer.icns</icon>
+              <javaOptions>
+                <javaOption>-Xmx1024m</javaOption>
+                <javaOption>-Dapple.awt.application.appearance=system</javaOption>
+                <!-- JavaFX loads its native libraries from the class path -->
+                <javaOption>--enable-native-access=ALL-UNNAMED</javaOption>
+              </javaOptions>
+              <macPackageName>SUD Time Fixer</macPackageName>
+              <macPackageIdentifier>org.pamguard.sudfixer</macPackageIdentifier>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>installer-windows</id>
+      <activation>
+        <os><family>windows</family></os>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.panteleyev</groupId>
+            <artifactId>jpackage-maven-plugin</artifactId>
+            <version>1.6.5</version>
+            <executions>
+              <execution>
+                <id>package-msi</id>
+                <phase>verify</phase>
+                <goals><goal>jpackage</goal></goals>
+              </execution>
+            </executions>
+            <configuration>
+              <name>${app.name}</name>
+              <appVersion>${project.version}</appVersion>
+              <vendor>${app.vendor}</vendor>
+              <copyright>${app.copyright}</copyright>
+              <description>${project.description}</description>
+              <type>MSI</type>
+              <input>${app.dir}</input>
+              <destination>${installer.dir}</destination>
+              <mainJar>${project.build.finalName}.jar</mainJar>
+              <mainClass>${main.class}</mainClass>
+              <icon>${project.basedir}/src/main/deploy/sudfixer.ico</icon>
+              <javaOptions>
+                <javaOption>-Xmx1024m</javaOption>
+                <!-- JavaFX loads its native libraries from the class path -->
+                <javaOption>--enable-native-access=ALL-UNNAMED</javaOption>
+              </javaOptions>
+              <winShortcut>true</winShortcut>
+              <winMenu>true</winMenu>
+              <winMenuGroup>WhalePi</winMenuGroup>
+              <winDirChooser>true</winDirChooser>
+              <winPerUserInstall>true</winPerUserInstall>
+              <!-- Stable UUID: keeps upgrades replacing the previous install -->
+              <winUpgradeUuid>7c1e2d4a-5b3f-4e8a-9d6c-1f2a3b4c5d6e</winUpgradeUuid>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>
